@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Runaway</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050607;font-family:Arial,sans-serif;touch-action:none}
+#game{position:fixed;inset:0}canvas{display:block}
+#hint{display:none}
+#crosshair{position:fixed;left:50%;top:50%;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 3px #000;transform:translate(-50%,-50%);pointer-events:none}
+#joystick{display:none;position:fixed;left:22px;bottom:28px;width:125px;height:125px;border-radius:50%;background:#ffffff30;border:2px solid #ffffff80;touch-action:none}
+#stick{position:absolute;width:52px;height:52px;left:35px;top:35px;border-radius:50%;background:#ffffffa8;border:2px solid white}
+#menuReturn{display:none;position:fixed;top:14px;left:14px;z-index:10;width:48px;height:48px;border:1px solid #ffffff90;border-radius:10px;background:#050707d9;color:#fff;font-size:27px;font-weight:bold;line-height:1;box-shadow:0 2px 12px #0008}
+body.playing #menuReturn{display:block}
+#jump{display:none;position:fixed;right:24px;bottom:34px;width:76px;height:76px;border-radius:50%;border:2px solid #fff;background:#1679e8b8;color:white;font-size:15px;font-weight:bold}
+#run{display:none;position:fixed;right:32px;bottom:124px;width:58px;height:58px;border-radius:50%;border:2px solid #fff;background:#3339;color:white;font-size:12px}
+#start{position:fixed;inset:0;display:flex;align-items:center;justify-content:flex-start;padding:clamp(18px,6vw,80px);background:linear-gradient(90deg,#020303f5 0%,#030505d9 34%,#06070740 70%,#0007 100%);color:white;text-align:left;z-index:5;overflow:hidden}
+#start:after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 3px,#ffffff09 4px,transparent 5px);mix-blend-mode:screen;animation:scan 7s linear infinite}
+#panel{position:relative;z-index:2;padding:0;background:transparent;border:0;border-radius:0;width:min(380px,82vw);box-shadow:none}
+#panel h1{margin:0 0 4px;font-size:clamp(42px,7vw,76px);letter-spacing:2px;line-height:.95;text-transform:uppercase;text-shadow:3px 0 #9a1010,-2px 0 #174f36;animation:titleJerk 4s steps(1,end) infinite}
+#panel .subtitle{font-size:clamp(18px,3vw,30px);font-weight:900;letter-spacing:5px;color:#c7c7c7;margin-bottom:25px}
+#panel p{line-height:1.5;color:#c1c1c1;font-size:14px;max-width:310px}
+.menuBtn{display:block;width:min(310px,100%);margin:11px 0;padding:14px 18px;text-align:left;border:1px solid #7778;background:#070909bd;color:#eee;font-size:17px;font-weight:800;letter-spacing:2px;cursor:pointer;transition:.15s;box-shadow:inset 4px 0 #333}
+#multiplayerBox{display:none;margin-top:8px;padding:12px;background:#050707e8;border:1px solid #42d87866;color:#fff}#multiplayerBox input{width:100%;padding:11px;margin:5px 0;background:#111;color:#fff;border:1px solid #777;border-radius:5px;font-size:16px}#multiplayerBox .roomAction{width:100%;padding:10px;margin-top:6px;background:#123522;color:#fff;border:1px solid #42d878;border-radius:5px;font-weight:bold}#netStatus{font-size:12px;color:#b9d8c4;line-height:1.4;margin-top:8px}.menuBtn:hover{background:#10271c;border-color:#42d878;box-shadow:inset 4px 0 #42d878;transform:translateX(5px)}
+#play{background:#092015dd;border-color:#23884b;box-shadow:inset 4px 0 #38d56b}
+#settingsBox{display:none;background:#080a0ae8;border:1px solid #777;padding:12px;margin-top:8px;color:#ddd;font-size:14px}
+#chatBox{display:none;position:fixed;left:14px;top:72px;width:min(300px,78vw);z-index:12;background:#050707dd;border:1px solid #ffffff55;padding:8px;color:white}#chatMessages{height:120px;overflow:auto;font:13px Arial;overflow-wrap:anywhere}#chatRow{display:flex;gap:4px}#chatInput{min-width:0;flex:1;padding:8px;background:#111;color:#fff;border:1px solid #777}#chatSend,#chatToggle{background:#111d;color:white;border:1px solid #aaa;padding:8px}body.playing #chatToggle{display:block}#chatToggle{display:none;position:fixed;left:14px;top:70px;z-index:11}#exitNote{display:none;color:#b8b8b8;font-size:12px;margin-top:8px}
+@keyframes scan{0%{transform:translateY(-8px)}100%{transform:translateY(8px)}}
+@keyframes titleJerk{0%,92%,100%{transform:translate(0)}93%{transform:translate(-4px,2px)}95%{transform:translate(3px,-1px)}97%{transform:translate(-2px,0)}}
+@media(max-width:600px){#start{align-items:flex-end;padding:24px 20px 34px;background:linear-gradient(0deg,#020303f5 0%,#030505c9 43%,#0002 100%)}#panel{width:100%}#panel h1{font-size:48px}.menuBtn{padding:12px 15px}}
+@media(pointer:coarse){body.playing #joystick,body.playing #jump,body.playing #run{display:block}}
+body:not(.playing) #joystick,body:not(.playing) #jump,body:not(.playing) #run,body:not(.playing) #crosshair{display:none}
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="crosshair"></div>
+<button id="menuReturn" aria-label="Вернуться в главное меню" title="Главное меню">☰</button><button id="chatToggle">ЧАТ</button><div id="chatBox"><div id="chatMessages"></div><div id="chatRow"><input id="chatInput" maxlength="180" placeholder="Сообщение…"><button id="chatSend">➤</button></div></div>
+<div id="joystick"><div id="stick"></div></div>
+<button id="jump">ПРЫЖОК</button><button id="run">БЕГ</button>
+<div id="start"><div id="panel"><h1>ROBLOX</h1><div class="subtitle">WALKER</div><button class="menuBtn" id="play">▶ &nbsp; ИГРАТЬ</button><button class="menuBtn" id="serversBtn">🌐 &nbsp; СЕРВЕРА</button><div id="multiplayerBox"><input id="nickname" maxlength="16" placeholder="Твой ник" value="Игрок"><button class="roomAction" id="createRoom">СОЗДАТЬ КОМНАТУ</button><div id="roomList" style="font-size:13px;margin-top:8px">Загружаю список комнат…</div><div id="netStatus">Подключение к Render…</div></div><button class="menuBtn" id="settingsBtn">⚙ &nbsp; НАСТРОЙКИ</button><div id="settingsBox">Настройки скоро появятся.</div><button class="menuBtn" id="exitBtn">✕ &nbsp; ВЫХОД</button><div id="exitNote">Чтобы закрыть игру, закрой вкладку браузера.</div><p>ОН УЖЕ ЗДЕСЬ.</p></div></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+(() => {
+const host=document.getElementById('game');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x030506); scene.fog=new THREE.Fog(0x030506,18,75);
+const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.1,300);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.outputColorSpace=THREE.SRGBColorSpace; host.appendChild(renderer.domElement);
+const hemi=new THREE.HemisphereLight(0x7b8790,0x171717,.75);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xb4c3cc,1.1); sun.position.set(-25,45,20); sun.castShadow=true; sun.shadow.mapSize.set(2048,2048); sun.shadow.camera.left=-65;sun.shadow.camera.right=65;sun.shadow.camera.top=65;sun.shadow.camera.bottom=-65;scene.add(sun);
+const mat=(c,rough=.86)=>new THREE.MeshStandardMaterial({color:c,roughness:rough});
+const plateMat=mat(0x202326), studMat=mat(0x34383b), skin=mat(0xe8d0b7), blue=mat(0x1766a8), black=mat(0x20242a), green=mat(0x244d35), white=mat(0xe8e8e8), hairMats=[mat(0x4a261b),mat(0x6a3524),mat(0x8a4a2b),mat(0x5a2e20)];
+// Roblox Studio-style Baseplate: a large, flat grey plate with a regular stud grid.
+const base=new THREE.Mesh(new THREE.BoxGeometry(220,1,220),plateMat);base.position.y=-.55;base.receiveShadow=true;scene.add(base);
+for(let x=-108;x<=108;x+=4){for(let z=-108;z<=108;z+=4){
+ const stud=new THREE.Mesh(new THREE.BoxGeometry(.72,.12,.72),studMat);
+ stud.position.set(x,.02,z);stud.receiveShadow=true;scene.add(stud);
+}}
+// Classic Roblox Bacon Hair avatar: blocky body, blue/black motorcycle-style top,
+// dark green trousers, light skin, white shoes, and layered brown Pal Hair.
+const player=new THREE.Group(); scene.add(player);
+const remotePlayers=new Map();let socket=null,networkReady=false,roomJoined=false,lastNetSend=0;
+function makeRemote(id,data){const g=new THREE.Group();const yellow=new THREE.MeshStandardMaterial({color:0xf2c94c}), blueM=new THREE.MeshStandardMaterial({color:0x2672c9}), dark=new THREE.MeshStandardMaterial({color:0x171717});function b(w,h,d,m,x,y,z){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);g.add(o)}b(.9,.9,.45,yellow,0,2.35,0);b(.8,1.1,.4,blueM,0,1.35,0);b(.28,.9,.3,yellow,-.58,1.35,0);b(.28,.9,.3,yellow,.58,1.35,0);b(.32,.95,.32,blueM,-.23,.45,0);b(.32,.95,.32,blueM,.23,.45,0);const label=document.createElement('div');label.textContent=(data&&data.name)||'Игрок';label.style.cssText='position:absolute;color:white;font:bold 13px Arial;text-shadow:0 2px 4px black;white-space:nowrap;transform:translate(-50%,-100%)';document.body.appendChild(label);g.userData.label=label;scene.add(g);remotePlayers.set(id,g);return g}
+let currentRoom='',myNick='Игрок',myPlayerId='';
+function wsUrl(){return window.WALKER_SERVER_URL||`${location.protocol==='https:'?'wss':'ws'}://${location.host}`}
+function clearRemote(){for(const [id,g] of remotePlayers){g.userData.label.remove();scene.remove(g)}remotePlayers.clear()}
+function sendNet(data){if(socket&&socket.readyState===WebSocket.OPEN)socket.send(JSON.stringify(data))}
+function updateRoomList(rooms){const box=document.getElementById('roomList');if(!rooms||!rooms.length){box.textContent='Комнат пока нет. Нажми «Играть», чтобы создать комнату.';return}
+ box.innerHTML='<b>Комнаты:</b>'+rooms.map(r=>`<button data-room="${String(r.name).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}" style="display:block;width:100%;text-align:left;margin-top:5px;padding:7px;background:#111;color:#fff;border:1px solid #555">${String(r.name).replace(/</g,'&lt;')} — ${r.count}/10 игроков</button>`).join('');
+ box.querySelectorAll('button[data-room]').forEach(b=>b.onclick=()=>joinRoom(b.dataset.room));
+}
+function openNetwork(onReady){const status=document.getElementById('netStatus');if(socket){try{socket.close()}catch(e){}socket=null}clearRemote();networkReady=false;
+ try{socket=new WebSocket(wsUrl());socket.onopen=()=>{networkReady=true;sendNet({type:'rooms'});if(onReady)onReady()};socket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}
+ if(m.type==='roomList'){updateRoomList(m.rooms||[])}
+ if(m.type==='joined'){currentRoom=m.room;myPlayerId=m.id;roomJoined=true;status.textContent=`В комнате «${currentRoom}»: ${m.count}/10 игроков`;document.getElementById('roomName')?.removeAttribute('required');}
+ if(m.type==='roomError'){status.textContent=m.message||'Не удалось войти в комнату'}
+ if(m.type==='snapshot'){const seen=new Set();for(const pl of m.players||[]){if(pl.id===m.id)continue;seen.add(pl.id);let g=remotePlayers.get(pl.id)||makeRemote(pl.id,pl);g.position.set(pl.x||0,pl.y||0,pl.z||0);g.rotation.y=pl.ry||0;g.userData.label.textContent=pl.name||'Игрок';const v=g.position.clone().add(new THREE.Vector3(0,3.1,0)).project(camera);g.userData.label.style.left=((v.x+1)*innerWidth/2)+'px';g.userData.label.style.top=((1-v.y)*innerHeight/2)+'px';g.userData.walking=!!pl.walking;g.userData.sprinting=!!pl.sprinting;}
+ for(const [id,g] of remotePlayers){if(!seen.has(id)){g.userData.label.remove();scene.remove(g);remotePlayers.delete(id)}}}
+ if(m.type==='chat'){const el=document.createElement('div');el.textContent=`${m.name}: ${m.text}`;const msgs=document.getElementById('chatMessages');msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;}
+ };socket.onclose=()=>{networkReady=false};socket.onerror=()=>{status.textContent='Не удалось подключиться. Проверь Render.'}
+ }catch(e){status.textContent='Ошибка подключения'}}
+function joinRoom(room){myNick=(document.getElementById('nickname').value||'Игрок').trim().slice(0,16)||'Игрок';openNetwork(()=>sendNet({type:'join',room,name:myNick}));}
+function quickPlay(){myNick=(document.getElementById('nickname').value||'Игрок').trim().slice(0,16)||'Игрок';openNetwork(()=>sendNet({type:'quickJoin',name:myNick}));}
+function refreshRooms(){openNetwork(()=>sendNet({type:'rooms'}));}
+function part(w,h,d,m,x,y,z,parent=player){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
+const torso=part(1.35,1.45,.7,blue,0,2.0,0);
+ // Dark jacket sides and black sleeves give the classic blue-and-black outfit.
+part(.23,1.35,.74,black,-.57,2.02,0);
+part(.23,1.35,.74,black,.57,2.02,0);
+part(.34,.18,.73,black,0,2.58,0);
+const head=part(1.05,1.05,1.05,skin,0,3.28,0);
+// Classic friendly face
+const faceMat=mat(0x292929,.65);
+for(let x of [-.23,.23])part(.10,.13,.035,faceMat,x,3.38,.535);
+part(.28,.055,.035,faceMat,0,3.12,.54);
+// Hair cap and several thick, curved bacon-like locks built from tapered segments.
+part(1.08,.18,1.08,hairMats[0],0,3.84,-.01);
+function hairLock(points, radius, material){
+ const curve=new THREE.CatmullRomCurve3(points.map(v=>new THREE.Vector3(...v)));
+ const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,18,radius,7,false),material);
+ mesh.castShadow=true;player.add(mesh);
+}
+// Top locks sweep forward and down over the forehead; side/back locks create the signature layered silhouette.
+hairLock([[-.42,3.87,-.25],[-.38,4.03,.02],[-.28,4.04,.28],[-.18,3.82,.52]],.15,hairMats[1]);
+hairLock([[-.20,3.91,-.28],[-.12,4.10,.00],[.02,4.08,.28],[.10,3.82,.54]],.16,hairMats[2]);
+hairLock([[.03,3.89,-.28],[.18,4.10,-.04],[.28,4.04,.24],[.34,3.80,.50]],.15,hairMats[1]);
+hairLock([[.28,3.86,-.28],[.42,4.02,-.02],[.48,3.96,.22],[.49,3.76,.45]],.14,hairMats[3]);
+hairLock([[-.48,3.78,-.25],[-.56,3.55,-.05],[-.48,3.42,.17]],.14,hairMats[0]);
+hairLock([[.46,3.79,-.23],[.57,3.55,-.02],[.50,3.40,.17]],.14,hairMats[2]);
+const arms=[],legs=[];
+for(let side of [-1,1]){
+ const arm=part(.42,1.25,.48,skin,side*.91,2.05,0);arms.push(arm);
+ // dark cuffs / sleeves on the upper arm
+ part(.44,.48,.50,black,side*.91,2.36,0);
+ const leg=part(.52,1.05,.58,green,side*.37,.78,0);legs.push(leg);
+ part(.54,.25,.72,white,side*.37,.15,-.07);
+}
+// Horror noob shown only behind the main menu. Its sudden jerks are animated below.
+const horrorNoob=new THREE.Group();scene.add(horrorNoob);horrorNoob.position.set(2.5,0,0);
+const horrorYellow=mat(0xb8a13a), horrorBlue=mat(0x102c61), horrorGreen=mat(0x182a1b), horrorDark=mat(0x050505), horrorRed=mat(0x4b080b);
+function horrorPart(w,h,d,m,x,y,z,parent=horrorNoob){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
+const horrorTorso=new THREE.Group();horrorTorso.position.y=2.05;horrorNoob.add(horrorTorso);
+horrorPart(1.45,1.5,.72,horrorBlue,0,0,0,horrorTorso);
+const horrorHeadGroup=new THREE.Group();horrorHeadGroup.position.set(0,3.25,0);horrorNoob.add(horrorHeadGroup);
+horrorPart(1.18,1.18,1.08,horrorYellow,0,0,0,horrorHeadGroup);
+// Hollow eyes and a wide black-red grin on the front of the square face.
+for(const x of [-.29,.29]){horrorPart(.20,.27,.045,horrorDark,x,.14,.555,horrorHeadGroup);horrorPart(.07,.07,.025,mat(0x650b0b),x,.12,.584,horrorHeadGroup)}
+horrorPart(.66,.27,.05,horrorDark,0,-.31,.56,horrorHeadGroup);horrorPart(.56,.07,.035,horrorRed,0,-.19,.59,horrorHeadGroup);
+for(let i=0;i<5;i++)horrorPart(.07,.11,.025,mat(0xd4c8a6),-.23+i*.115,-.27,.602,horrorHeadGroup);
+const horrorArms=[],horrorLegs=[];
+for(const side of [-1,1]){const pivot=new THREE.Group();pivot.position.set(side*.93,2.35,0);horrorNoob.add(pivot);horrorPart(.43,1.45,.48,horrorYellow,0,-.35,0,pivot);horrorArms.push(pivot);const leg= new THREE.Group();leg.position.set(side*.38,1.05,0);horrorNoob.add(leg);horrorPart(.52,1.2,.58,horrorGreen,0,-.48,0,leg);horrorLegs.push(leg)}
+horrorNoob.rotation.y=-.22;
+player.position.set(0,0,0);player.visible=false;
+// Camera uses third-person follow and Roblox-style orbit
+let yaw=0,pitch=.18,camDist=7.3,verticalVelocity=0,onGround=true,started=false,runTouch=false;
+const keys={};let joy={x:0,y:0},lastTouch=null;
+function updateCamera(){const target=new THREE.Vector3(player.position.x,player.position.y+2.55,player.position.z);const cp=Math.cos(pitch),sp=Math.sin(pitch);const offset=new THREE.Vector3(Math.sin(yaw)*cp*camDist, (sp*camDist)+.7, Math.cos(yaw)*cp*camDist);camera.position.copy(target).add(offset);camera.lookAt(target)}
+function lock(){if(!('ontouchstart' in window)&&renderer.domElement.requestPointerLock)renderer.domElement.requestPointerLock()}
+document.getElementById('serversBtn').onclick=()=>{const b=document.getElementById('multiplayerBox');b.style.display=b.style.display==='block'?'none':'block';if(b.style.display==='block')refreshRooms()};document.getElementById('createRoom').onclick=()=>{myNick=(document.getElementById('nickname').value||'Игрок').trim().slice(0,16)||'Игрок';openNetwork(()=>sendNet({type:'createRoom',name:myNick}));};
+document.getElementById('play').onclick=()=>{quickPlay();document.body.classList.add('playing');document.getElementById('start').style.display='none';started=true;player.visible=true;horrorNoob.visible=false;scene.background=new THREE.Color(0x87ceeb);scene.fog=null;hemi.intensity=2;sun.intensity=2.2;plateMat.color.setHex(0x777b80);studMat.color.setHex(0x898d92);lock();};
+document.getElementById('menuReturn').onclick=()=>{started=false;if(socket){try{socket.close()}catch(e){}socket=null}networkReady=false;document.getElementById('chatBox').style.display='none';roomJoined=false;for(const [id,g] of remotePlayers){g.userData.label.remove();scene.remove(g)}remotePlayers.clear();document.body.classList.remove('playing');document.getElementById('start').style.display='flex';player.visible=false;horrorNoob.visible=true;scene.background=new THREE.Color(0x030506);scene.fog=new THREE.Fog(0x030506,18,75);hemi.intensity=.75;sun.intensity=1.1;plateMat.color.setHex(0x202326);studMat.color.setHex(0x34383b);runTouch=false;resetJoy();if(document.pointerLockElement&&document.exitPointerLock)document.exitPointerLock();camera.position.set(.1,4.2,12.7);camera.lookAt(1.4,2.25,0)};
+document.getElementById('chatToggle').onclick=()=>{const b=document.getElementById('chatBox');b.style.display=b.style.display==='block'?'none':'block'};
+function sendChat(){const input=document.getElementById('chatInput');const text=input.value.trim();if(text&&networkReady){sendNet({type:'chat',text});input.value=''}}
+document.getElementById('chatSend').onclick=sendChat;document.getElementById('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendChat()});
+document.getElementById('settingsBtn').onclick=()=>{const b=document.getElementById('settingsBox');b.style.display=b.style.display==='block'?'none':'block'};
+document.getElementById('exitBtn').onclick=()=>{document.getElementById('exitNote').style.display='block'};
+document.addEventListener('pointerlockchange',()=>{});
+document.addEventListener('mousemove',e=>{if(document.pointerLockElement===renderer.domElement){yaw-=e.movementX*.0025;pitch=Math.max(-.48,Math.min(.85,pitch+e.movementY*.002));}});
+document.addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();});
+document.addEventListener('keyup',e=>keys[e.code]=false);
+renderer.domElement.addEventListener('click',()=>{if(started&&!('ontouchstart' in window))lock()});
+renderer.domElement.addEventListener('touchstart',e=>{if(!started)return;const t=e.changedTouches[0];lastTouch={x:t.clientX,y:t.clientY,id:t.identifier}}, {passive:true});
+renderer.domElement.addEventListener('touchmove',e=>{if(!started||!lastTouch)return;for(const t of e.changedTouches){if(t.identifier===lastTouch.id){const dx=t.clientX-lastTouch.x,dy=t.clientY-lastTouch.y;yaw-=dx*.006;pitch=Math.max(-.48,Math.min(.85,pitch+dy*.004));lastTouch={x:t.clientX,y:t.clientY,id:t.identifier};}}},{passive:true});
+renderer.domElement.addEventListener('touchend',e=>{if(lastTouch&&[...e.changedTouches].some(t=>t.identifier===lastTouch.id))lastTouch=null;},{passive:true});
+const joyEl=document.getElementById('joystick'),stick=document.getElementById('stick');let joyId=null;
+joyEl.addEventListener('pointerdown',e=>{joyId=e.pointerId;joyEl.setPointerCapture(joyId);moveJoy(e)});
+joyEl.addEventListener('pointermove',e=>{if(e.pointerId===joyId)moveJoy(e)});
+function moveJoy(e){const r=joyEl.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=e.clientX-cx,dy=e.clientY-cy,l=Math.hypot(dx,dy),max=42;if(l>max){dx=dx/l*max;dy=dy/l*max}joy.x=dx/max;joy.y=dy/max;stick.style.left=(35+dx)+'px';stick.style.top=(35+dy)+'px'}
+function resetJoy(){joyId=null;joy.x=0;joy.y=0;stick.style.left='35px';stick.style.top='35px'}
+joyEl.addEventListener('pointerup',resetJoy);joyEl.addEventListener('pointercancel',resetJoy);
+function jump(){if(onGround){verticalVelocity=8.8;onGround=false}}
+document.getElementById('jump').addEventListener('pointerdown',e=>{e.preventDefault();jump()});
+document.getElementById('run').addEventListener('pointerdown',e=>{e.preventDefault();runTouch=true});
+document.getElementById('run').addEventListener('pointerup',()=>runTouch=false);document.getElementById('run').addEventListener('pointercancel',()=>runTouch=false);
+const clock=new THREE.Clock();let walkT=0,menuTime=0,nextJerk=0,jerkPower=0;camera.position.set(.1,4.2,12.7);camera.lookAt(1.4,2.25,0);
+function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.04);menuTime+=dt;
+if(!started){if(menuTime>nextJerk){nextJerk=menuTime+.12+Math.random()*.48;jerkPower=(Math.random()>.42?1:-1)*(0.18+Math.random()*.5)}const snap=Math.sin(menuTime*7)*.035;horrorNoob.rotation.y=-.22+snap+jerkPower*.23;horrorNoob.position.x=2.5+(Math.random()>.992?(Math.random()-.5)*.6:0);horrorHeadGroup.rotation.z=Math.sin(menuTime*2.3)*.05+jerkPower*.13;horrorHeadGroup.rotation.x=Math.sin(menuTime*3.4)*.04;horrorArms[0].rotation.z=.08+Math.sin(menuTime*5)*.09+jerkPower*.65;horrorArms[1].rotation.z=-.08-Math.sin(menuTime*4.4)*.09-jerkPower*.8;horrorLegs[0].rotation.x=Math.sin(menuTime*6)*.04;horrorLegs[1].rotation.x=-Math.sin(menuTime*6.3)*.04;camera.position.x=.1+Math.sin(menuTime*.65)*.08;camera.position.y=4.2+Math.sin(menuTime*1.7)*.025;camera.lookAt(1.4,2.25,0)}
+if(started){
+ let f=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)-joy.y;
+ let r=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+joy.x;
+ if(keys.Space) {jump();keys.Space=false}
+ let len=Math.hypot(f,r);if(len>1){f/=len;r/=len}
+ const sprint=keys.ShiftLeft||keys.ShiftRight||runTouch;const speed=sprint?11:7;
+ // Movement follows camera facing direction
+ const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+ const right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
+ const move=forward.multiplyScalar(f).add(right.multiplyScalar(r));
+ if(move.lengthSq()>.001){move.normalize();player.position.addScaledVector(move,speed*dt);player.rotation.y=Math.atan2(move.x,move.z);walkT+=dt*(sprint?13:9);arms[0].rotation.x=Math.sin(walkT)*.65;arms[1].rotation.x=-Math.sin(walkT)*.65;legs[0].rotation.x=-Math.sin(walkT)*.7;legs[1].rotation.x=Math.sin(walkT)*.7}
+ else {arms.forEach(a=>a.rotation.x*=.8);legs.forEach(a=>a.rotation.x*=.8)}
+ verticalVelocity-=22*dt;player.position.y+=verticalVelocity*dt;if(player.position.y<=0){player.position.y=0;verticalVelocity=0;onGround=true}
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-140,140);player.position.z=THREE.MathUtils.clamp(player.position.z,-140,140);
+ updateCamera();
+ if(networkReady&&socket&&socket.readyState===WebSocket.OPEN&&performance.now()-lastNetSend>50){lastNetSend=performance.now();socket.send(JSON.stringify({type:'move',x:player.position.x,y:player.position.y,z:player.position.z,ry:player.rotation.y,walking:move.lengthSq()>.001,sprinting:!!sprint}));}
+}
+renderer.render(scene,camera)}
+animate();
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+})();
+</script>
+</body></html>

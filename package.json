@@ -1,0 +1,12 @@
+{
+  "name": "runaway-multiplayer",
+  "version": "1.2.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
